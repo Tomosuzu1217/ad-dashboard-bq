@@ -119,7 +119,7 @@ async function handleFunnelDaily(req: Request, res: Response) {
   const [rows] = await bq.query({
     query,
     params,
-    location: "US",
+    location: "asia-northeast1",
   });
 
   res.json(envelope(rows, rows.length));
@@ -167,7 +167,7 @@ async function handleCreative(req: Request, res: Response) {
   const [rows] = await bq.query({
     query,
     params,
-    location: "US",
+    location: "asia-northeast1",
   });
 
   res.json(envelope(rows, rows.length));
@@ -203,7 +203,7 @@ async function handleCounselorMonthly(req: Request, res: Response) {
   const [rows] = await bq.query({
     query,
     params,
-    location: "US",
+    location: "asia-northeast1",
   });
 
   res.json(envelope(rows, rows.length));
@@ -245,7 +245,7 @@ async function handleAcquisition(req: Request, res: Response) {
   const [rows] = await bq.query({
     query,
     params,
-    location: "US",
+    location: "asia-northeast1",
   });
 
   res.json(envelope(rows, rows.length));
@@ -285,7 +285,7 @@ async function handleMarketingKpi(req: Request, res: Response) {
   const [rows] = await bq.query({
     query,
     params,
-    location: "US",
+    location: "asia-northeast1",
   });
 
   res.json(envelope(rows, rows.length));
@@ -321,7 +321,7 @@ async function handleSalesSummary(req: Request, res: Response) {
   const [rows] = await bq.query({
     query,
     params,
-    location: "US",
+    location: "asia-northeast1",
   });
 
   res.json(envelope(rows, rows.length));
@@ -357,7 +357,7 @@ async function handleLossReason(req: Request, res: Response) {
   const [rows] = await bq.query({
     query,
     params,
-    location: "US",
+    location: "asia-northeast1",
   });
 
   res.json(envelope(rows, rows.length));

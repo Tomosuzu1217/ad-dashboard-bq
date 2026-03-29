@@ -1,20 +1,21 @@
-// ============ Types ============
+// ============ Types (BigQueryカラム名に完全一致) ============
 
+// unified_performance: date, funnel_type, media_code, cost, impressions, clicks, linead_count, settlement_count, total_amount
 export interface FunnelDailyRow {
-  report_date: string
+  date: string
   media_code: string
-  creative_code: string
   funnel_type: string
   impressions: number
   clicks: number
   cost: number
-  ad_conversions: number
   linead_count: number
   settlement_count: number
   total_amount: number
 }
 
+// creative_performance_integrated: date, funnel_type, media_code, creative_code, impressions, clicks, cost, ad_conversions, booking_count, seating_count, negotiation_count, settlement_count, total_amount
 export interface CreativeRow {
+  date: string
   creative_code: string
   media_code: string
   funnel_type: string
@@ -22,69 +23,55 @@ export interface CreativeRow {
   clicks: number
   cost: number
   ad_conversions: number
-  linead_count: number
+  booking_count: number
+  seating_count: number
+  negotiation_count: number
   settlement_count: number
   total_amount: number
-  ctr: number
-  cpc: number
-  cpa: number
-  cpo: number
-  roi: number
 }
 
+// counselor_date.monthly_stats: SELECT * (カラム名は実テーブル依存)
 export interface CounselorMonthlyRow {
-  month: string
-  counselor_name: string
-  media_code: string
-  settlement_count: number
-  total_amount: number
-  lead_count: number
-  conversion_rate: number
+  [key: string]: unknown
+  month?: string
+  staff_name?: string
+  business_date?: string
 }
 
+// aggregate_acquisition: date, media_code, creative_code, cost, impressions, clicks, ad_conversions
 export interface AcquisitionRow {
-  report_date: string
+  date: string
   media_code: string
-  funnel_type: string
-  linead_count: number
-  settlement_count: number
-  total_amount: number
+  creative_code: string
   cost: number
+  impressions: number
+  clicks: number
+  ad_conversions: number
 }
 
-export interface MarketingKpiRow {
-  month: string
-  total_cost: number
-  total_revenue: number
-  total_settlements: number
-  total_leads: number
-  roi: number
-  cpo: number
-  cpa: number
-  arpu: number
+// marketing_connect_tb: date, media, route, cost, ... (生データ - フロントで集計)
+export interface MarketingKpiRawRow {
+  date: string
+  media: string
+  route: string
+  cost: number
+  [key: string]: unknown
 }
 
+// v_sales_and_loss_full_summary_wide: SELECT * (カラム名は実テーブル依存)
 export interface SalesSummaryRow {
-  month: string
-  counselor_name: string
-  settlement_count: number
-  total_amount: number
-  average_amount: number
-  lead_count: number
-  conversion_rate: number
+  [key: string]: unknown
 }
 
+// v_loss_reason_analysis: SELECT * (カラム名は実テーブル依存)
 export interface LossReasonRow {
-  month: string
-  loss_reason: string
-  count: number
-  percentage: number
+  [key: string]: unknown
 }
 
 export interface HealthResponse {
   status: string
-  bigquery: string
-  timestamp: string
+  project: string
+  tables: Record<string, { rowCount: number | null }>
 }
 
 export interface ApiParams {
@@ -92,13 +79,24 @@ export interface ApiParams {
   end_date?: string
   media_code?: string
   funnel_type?: string
+  media?: string
+  start_month?: string
+  end_month?: string
+}
+
+// ============ API Response Envelope ============
+
+interface ApiEnvelope<T> {
+  data: T[]
+  totalRows: number
+  lastUpdated: string
 }
 
 // ============ API Client ============
 
 const BASE = '/api'
 
-async function fetchJson<T>(endpoint: string, params?: ApiParams): Promise<T> {
+async function fetchApi<T>(endpoint: string, params?: ApiParams): Promise<{ data: T[]; totalRows: number; lastUpdated: string }> {
   const url = new URL(endpoint, window.location.origin)
   if (params) {
     for (const [k, v] of Object.entries(params)) {
@@ -110,39 +108,49 @@ async function fetchJson<T>(endpoint: string, params?: ApiParams): Promise<T> {
     const text = await res.text().catch(() => res.statusText)
     throw new Error(`API Error ${res.status}: ${text}`)
   }
+  const json: ApiEnvelope<T> = await res.json()
+  return json
+}
+
+export async function fetchFunnelDaily(params?: ApiParams) {
+  const res = await fetchApi<FunnelDailyRow>(`${BASE}/funnel-daily`, params)
+  return res.data
+}
+
+export async function fetchCreative(params?: ApiParams) {
+  const res = await fetchApi<CreativeRow>(`${BASE}/creative`, params)
+  return res.data
+}
+
+export async function fetchCounselorMonthly(params?: ApiParams) {
+  const res = await fetchApi<CounselorMonthlyRow>(`${BASE}/counselor-monthly`, params)
+  return res.data
+}
+
+export async function fetchAcquisition(params?: ApiParams) {
+  const res = await fetchApi<AcquisitionRow>(`${BASE}/acquisition`, params)
+  return res.data
+}
+
+export async function fetchMarketingKpi(params?: ApiParams) {
+  const res = await fetchApi<MarketingKpiRawRow>(`${BASE}/marketing-kpi`, params)
+  return res.data
+}
+
+export async function fetchSalesSummary(params?: ApiParams) {
+  const res = await fetchApi<SalesSummaryRow>(`${BASE}/sales-summary`, params)
+  return res.data
+}
+
+export async function fetchLossReason(params?: ApiParams) {
+  const res = await fetchApi<LossReasonRow>(`${BASE}/loss-reason`, params)
+  return res.data
+}
+
+export async function fetchHealth(): Promise<HealthResponse> {
+  const res = await fetch(`${BASE}/health`)
+  if (!res.ok) throw new Error(`Health check failed: ${res.status}`)
   return res.json()
-}
-
-export function fetchFunnelDaily(params?: ApiParams) {
-  return fetchJson<FunnelDailyRow[]>(`${BASE}/funnel-daily`, params)
-}
-
-export function fetchCreative(params?: ApiParams) {
-  return fetchJson<CreativeRow[]>(`${BASE}/creative`, params)
-}
-
-export function fetchCounselorMonthly(params?: ApiParams) {
-  return fetchJson<CounselorMonthlyRow[]>(`${BASE}/counselor-monthly`, params)
-}
-
-export function fetchAcquisition(params?: ApiParams) {
-  return fetchJson<AcquisitionRow[]>(`${BASE}/acquisition`, params)
-}
-
-export function fetchMarketingKpi(params?: ApiParams) {
-  return fetchJson<MarketingKpiRow[]>(`${BASE}/marketing-kpi`, params)
-}
-
-export function fetchSalesSummary(params?: ApiParams) {
-  return fetchJson<SalesSummaryRow[]>(`${BASE}/sales-summary`, params)
-}
-
-export function fetchLossReason(params?: ApiParams) {
-  return fetchJson<LossReasonRow[]>(`${BASE}/loss-reason`, params)
-}
-
-export function fetchHealth() {
-  return fetchJson<HealthResponse>(`${BASE}/health`)
 }
 
 // ============ useApiData Hook ============

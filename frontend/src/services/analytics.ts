@@ -7,12 +7,11 @@ export interface OverallKpi {
   totalRevenue: number
   totalSettlements: number
   totalLineAdds: number
-  totalAdConversions: number
   totalImpressions: number
   totalClicks: number
   roi: number
   cpo: number
-  cpa: number
+  lineAddCpa: number
   ctr: number
   cpc: number
   cpm: number
@@ -25,12 +24,11 @@ export interface MediaSummary {
   totalRevenue: number
   totalSettlements: number
   totalLineAdds: number
-  totalAdConversions: number
   totalImpressions: number
   totalClicks: number
   roi: number
   cpo: number
-  cpa: number
+  lineAddCpa: number
   ctr: number
   cpc: number
 }
@@ -41,12 +39,10 @@ export interface CreativeSummary {
   totalCost: number
   totalRevenue: number
   totalSettlements: number
-  totalLineAdds: number
-  totalAdConversions: number
   totalImpressions: number
   totalClicks: number
+  ad_conversions: number
   cpo: number
-  cpa: number
   roi: number
 }
 
@@ -59,8 +55,6 @@ export interface PeriodComparison {
   settlementChange: number
   cpo: number
   cpoChange: number
-  ad_conversions: number
-  adConvChange: number
 }
 
 export interface CreativeRanking {
@@ -88,7 +82,6 @@ export function computeOverallKpi(data: FunnelDailyRow[]): OverallKpi {
   const totalRevenue = data.reduce((s, r) => s + (r.total_amount || 0), 0)
   const totalSettlements = data.reduce((s, r) => s + (r.settlement_count || 0), 0)
   const totalLineAdds = data.reduce((s, r) => s + (r.linead_count || 0), 0)
-  const totalAdConversions = data.reduce((s, r) => s + (r.ad_conversions || 0), 0)
   const totalImpressions = data.reduce((s, r) => s + (r.impressions || 0), 0)
   const totalClicks = data.reduce((s, r) => s + (r.clicks || 0), 0)
 
@@ -97,12 +90,11 @@ export function computeOverallKpi(data: FunnelDailyRow[]): OverallKpi {
     totalRevenue,
     totalSettlements,
     totalLineAdds,
-    totalAdConversions,
     totalImpressions,
     totalClicks,
     roi: totalCost > 0 ? ((totalRevenue - totalCost) / totalCost) * 100 : 0,
     cpo: totalSettlements > 0 ? totalCost / totalSettlements : 0,
-    cpa: totalAdConversions > 0 ? totalCost / totalAdConversions : 0,
+    lineAddCpa: totalLineAdds > 0 ? totalCost / totalLineAdds : 0,
     ctr: totalImpressions > 0 ? (totalClicks / totalImpressions) * 100 : 0,
     cpc: totalClicks > 0 ? totalCost / totalClicks : 0,
     cpm: totalImpressions > 0 ? (totalCost / totalImpressions) * 1000 : 0,
@@ -122,7 +114,6 @@ export function aggregateByMedia(data: FunnelDailyRow[]): MediaSummary[] {
     const totalRevenue = rows.reduce((s, r) => s + (r.total_amount || 0), 0)
     const totalSettlements = rows.reduce((s, r) => s + (r.settlement_count || 0), 0)
     const totalLineAdds = rows.reduce((s, r) => s + (r.linead_count || 0), 0)
-    const totalAdConversions = rows.reduce((s, r) => s + (r.ad_conversions || 0), 0)
     const totalImpressions = rows.reduce((s, r) => s + (r.impressions || 0), 0)
     const totalClicks = rows.reduce((s, r) => s + (r.clicks || 0), 0)
     return {
@@ -131,12 +122,11 @@ export function aggregateByMedia(data: FunnelDailyRow[]): MediaSummary[] {
       totalRevenue,
       totalSettlements,
       totalLineAdds,
-      totalAdConversions,
       totalImpressions,
       totalClicks,
       roi: totalCost > 0 ? ((totalRevenue - totalCost) / totalCost) * 100 : 0,
       cpo: totalSettlements > 0 ? totalCost / totalSettlements : 0,
-      cpa: totalAdConversions > 0 ? totalCost / totalAdConversions : 0,
+      lineAddCpa: totalLineAdds > 0 ? totalCost / totalLineAdds : 0,
       ctr: totalImpressions > 0 ? (totalClicks / totalImpressions) * 100 : 0,
       cpc: totalClicks > 0 ? totalCost / totalClicks : 0,
     }
@@ -154,22 +144,19 @@ export function aggregateByCreative(data: CreativeRow[]): CreativeSummary[] {
     const totalCost = rows.reduce((s, r) => s + (r.cost || 0), 0)
     const totalRevenue = rows.reduce((s, r) => s + (r.total_amount || 0), 0)
     const totalSettlements = rows.reduce((s, r) => s + (r.settlement_count || 0), 0)
-    const totalLineAdds = rows.reduce((s, r) => s + (r.linead_count || 0), 0)
-    const totalAdConversions = rows.reduce((s, r) => s + (r.ad_conversions || 0), 0)
     const totalImpressions = rows.reduce((s, r) => s + (r.impressions || 0), 0)
     const totalClicks = rows.reduce((s, r) => s + (r.clicks || 0), 0)
+    const ad_conversions = rows.reduce((s, r) => s + (r.ad_conversions || 0), 0)
     return {
       creative_code: rows[0].creative_code,
       media_code: rows[0].media_code,
       totalCost,
       totalRevenue,
       totalSettlements,
-      totalLineAdds,
-      totalAdConversions,
       totalImpressions,
       totalClicks,
+      ad_conversions,
       cpo: totalSettlements > 0 ? totalCost / totalSettlements : 0,
-      cpa: totalAdConversions > 0 ? totalCost / totalAdConversions : 0,
       roi: totalCost > 0 ? ((totalRevenue - totalCost) / totalCost) * 100 : 0,
     }
   }).sort((a, b) => b.totalCost - a.totalCost)
@@ -179,10 +166,9 @@ export function computePeriodComparison(
   data: FunnelDailyRow[],
   periodType: 'daily' | 'weekly' | 'monthly',
 ): PeriodComparison[] {
-  // Group data by period + media
   const getPeriodKey = (dateStr: string): string => {
-    const d = new Date(dateStr)
     if (periodType === 'daily') return dateStr
+    const d = new Date(dateStr)
     if (periodType === 'monthly') return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`
     // weekly: ISO week start (Monday)
     const day = d.getDay()
@@ -193,7 +179,7 @@ export function computePeriodComparison(
 
   const grouped = new Map<string, Map<string, FunnelDailyRow[]>>()
   for (const r of data) {
-    const pk = getPeriodKey(r.report_date)
+    const pk = getPeriodKey(r.date)
     if (!grouped.has(pk)) grouped.set(pk, new Map())
     const mediaMap = grouped.get(pk)!
     const mk = r.media_code || 'unknown'
@@ -210,41 +196,29 @@ export function computePeriodComparison(
     for (const [media_code, rows] of mediaMap) {
       const cost = rows.reduce((s, r) => s + (r.cost || 0), 0)
       const settlements = rows.reduce((s, r) => s + (r.settlement_count || 0), 0)
-      const adConv = rows.reduce((s, r) => s + (r.ad_conversions || 0), 0)
       const cpo = settlements > 0 ? cost / settlements : 0
 
-      // Previous period comparison
-      let costChange = 0, settlementChange = 0, cpoChange = 0, adConvChange = 0
+      let costChange = 0, settlementChange = 0, cpoChange = 0
       if (i > 0) {
         const prevMediaMap = grouped.get(periods[i - 1])
         const prevRows = prevMediaMap?.get(media_code)
         if (prevRows) {
           const prevCost = prevRows.reduce((s, r) => s + (r.cost || 0), 0)
           const prevSettlements = prevRows.reduce((s, r) => s + (r.settlement_count || 0), 0)
-          const prevAdConv = prevRows.reduce((s, r) => s + (r.ad_conversions || 0), 0)
           const prevCpo = prevSettlements > 0 ? prevCost / prevSettlements : 0
           costChange = prevCost > 0 ? ((cost - prevCost) / prevCost) * 100 : 0
           settlementChange = prevSettlements > 0 ? ((settlements - prevSettlements) / prevSettlements) * 100 : 0
           cpoChange = prevCpo > 0 ? ((cpo - prevCpo) / prevCpo) * 100 : 0
-          adConvChange = prevAdConv > 0 ? ((adConv - prevAdConv) / prevAdConv) * 100 : 0
         }
       }
 
       results.push({
-        period,
-        media_code,
-        cost,
-        costChange,
-        settlement_count: settlements,
-        settlementChange,
-        cpo,
-        cpoChange,
-        ad_conversions: adConv,
-        adConvChange,
+        period, media_code, cost, costChange,
+        settlement_count: settlements, settlementChange,
+        cpo, cpoChange,
       })
     }
   }
-
   return results
 }
 
@@ -292,74 +266,39 @@ export function detectAlerts(
     if (c.cost < thresholds.minSpend) continue
 
     if (c.cpoChange > thresholds.criticalPct) {
-      alerts.push({
-        type: 'CPO',
-        media_code: c.media_code,
-        period: c.period,
-        metric: 'CPO',
-        changeRate: c.cpoChange,
-        level: 'CRITICAL_UP',
-      })
+      alerts.push({ type: 'CPO', media_code: c.media_code, period: c.period, metric: 'CPO', changeRate: c.cpoChange, level: 'CRITICAL_UP' })
     } else if (c.cpoChange > thresholds.warningPct) {
-      alerts.push({
-        type: 'CPO',
-        media_code: c.media_code,
-        period: c.period,
-        metric: 'CPO',
-        changeRate: c.cpoChange,
-        level: 'WARNING_UP',
-      })
+      alerts.push({ type: 'CPO', media_code: c.media_code, period: c.period, metric: 'CPO', changeRate: c.cpoChange, level: 'WARNING_UP' })
     } else if (c.cpoChange < -thresholds.warningPct) {
-      alerts.push({
-        type: 'CPO',
-        media_code: c.media_code,
-        period: c.period,
-        metric: 'CPO',
-        changeRate: c.cpoChange,
-        level: 'GOOD_DOWN',
-      })
+      alerts.push({ type: 'CPO', media_code: c.media_code, period: c.period, metric: 'CPO', changeRate: c.cpoChange, level: 'GOOD_DOWN' })
     }
 
     if (c.costChange > thresholds.criticalPct && c.settlementChange < 0) {
-      alerts.push({
-        type: 'CPM_SPIKE',
-        media_code: c.media_code,
-        period: c.period,
-        metric: 'Cost/Settlement',
-        changeRate: c.costChange,
-        level: 'CPM_SPIKE',
-      })
+      alerts.push({ type: 'CPM_SPIKE', media_code: c.media_code, period: c.period, metric: 'Cost/Settlement', changeRate: c.costChange, level: 'CPM_SPIKE' })
     }
   }
   return alerts.sort((a, b) => Math.abs(b.changeRate) - Math.abs(a.changeRate))
 }
 
-// ============ Utility: Daily cost trend from funnel data ============
+// ============ Utility: Daily cost trend ============
 
 export interface DailyCostPoint {
   date: string
   cost: number
   settlements: number
-  ad_conversions: number
 }
 
 export function dailyCostTrend(data: FunnelDailyRow[]): DailyCostPoint[] {
-  const map = new Map<string, { cost: number; settlements: number; adConv: number }>()
+  const map = new Map<string, { cost: number; settlements: number }>()
   for (const r of data) {
-    const d = r.report_date
-    if (!map.has(d)) map.set(d, { cost: 0, settlements: 0, adConv: 0 })
+    const d = r.date
+    if (!map.has(d)) map.set(d, { cost: 0, settlements: 0 })
     const entry = map.get(d)!
     entry.cost += r.cost || 0
     entry.settlements += r.settlement_count || 0
-    entry.adConv += r.ad_conversions || 0
   }
   return Array.from(map.entries())
-    .map(([date, v]) => ({
-      date,
-      cost: Math.round(v.cost),
-      settlements: v.settlements,
-      ad_conversions: v.adConv,
-    }))
+    .map(([date, v]) => ({ date, cost: Math.round(v.cost), settlements: v.settlements }))
     .sort((a, b) => a.date.localeCompare(b.date))
 }
 
@@ -376,7 +315,7 @@ export interface MonthlyCpoPoint {
 export function monthlyCpoTrend(data: FunnelDailyRow[]): MonthlyCpoPoint[] {
   const map = new Map<string, { cost: number; settlements: number }>()
   for (const r of data) {
-    const month = r.report_date.slice(0, 7)
+    const month = r.date.slice(0, 7)
     const key = `${month}__${r.media_code}`
     if (!map.has(key)) map.set(key, { cost: 0, settlements: 0 })
     const entry = map.get(key)!
@@ -386,13 +325,7 @@ export function monthlyCpoTrend(data: FunnelDailyRow[]): MonthlyCpoPoint[] {
   return Array.from(map.entries())
     .map(([key, v]) => {
       const [month, media_code] = key.split('__')
-      return {
-        month,
-        media_code,
-        cpo: v.settlements > 0 ? v.cost / v.settlements : 0,
-        cost: v.cost,
-        settlements: v.settlements,
-      }
+      return { month, media_code, cpo: v.settlements > 0 ? v.cost / v.settlements : 0, cost: v.cost, settlements: v.settlements }
     })
     .sort((a, b) => a.month.localeCompare(b.month))
 }

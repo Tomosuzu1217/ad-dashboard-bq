@@ -151,7 +151,7 @@ export default function App() {
 
   // ---- Health check ----
   const health = useApiData<HealthResponse>(() => fetchHealth(), [])
-  const isHealthy = health.data?.status === 'ok' || health.data?.bigquery === 'connected'
+  const isHealthy = health.data?.status === 'ok'
 
   // ---- API Data ----
   const funnelResult = useApiData<FunnelDailyRow[]>(
@@ -290,20 +290,20 @@ export default function App() {
     [monthlyCpo],
   )
 
-  // ---- Data list rows ----
+  // ---- Data list rows (uses creative data which has creative_code + ad_conversions) ----
   const dataListRows = useMemo(() => {
     if (activeTab !== 'datalist') return []
-    let rows = funnelData
+    let rows = creativeData
     if (debouncedSearch) {
       const q = debouncedSearch.toLowerCase()
       rows = rows.filter(r =>
-        r.report_date.toLowerCase().includes(q) ||
+        r.date.toLowerCase().includes(q) ||
         r.media_code.toLowerCase().includes(q) ||
         r.creative_code.toLowerCase().includes(q),
       )
     }
     return rows
-  }, [funnelData, debouncedSearch, activeTab])
+  }, [creativeData, debouncedSearch, activeTab])
 
   // ---- Sort helpers ----
   const handleSort = useCallback((col: string) => {
@@ -420,11 +420,11 @@ export default function App() {
                 <KpiCard label="総売上" value={fmtYen(kpi!.totalRevenue)} />
                 <KpiCard label="ROI" value={fmtPct(kpi!.roi)} sub={kpi!.roi > 0 ? '黒字' : '赤字'} />
                 <KpiCard label="CPO (成約単価)" value={fmtYen(kpi!.cpo)} />
-                <KpiCard label="CPA (CV単価)" value={fmtYen(kpi!.cpa)} />
+                <KpiCard label="LINE追加CPA" value={fmtYen(kpi!.lineAddCpa)} />
                 <KpiCard label="ARPU (客単価)" value={fmtYen(kpi!.arpu)} />
                 <KpiCard label="成約数" value={fmt(kpi!.totalSettlements)} />
                 <KpiCard label="LINE追加" value={fmt(kpi!.totalLineAdds)} />
-                <KpiCard label="広告CV" value={fmt(kpi!.totalAdConversions)} />
+                <KpiCard label="LINE追加数" value={fmt(kpi!.totalLineAdds)} />
                 <KpiCard label="CTR" value={fmtPct(kpi!.ctr)} />
                 <KpiCard label="CPC" value={fmtYen(kpi!.cpc)} />
                 <KpiCard label="CPM" value={fmtYen(kpi!.cpm)} />
@@ -524,7 +524,6 @@ export default function App() {
                         <th onClick={() => handleSort('totalCost')}>コスト{sortIndicator('totalCost')}</th>
                         <th onClick={() => handleSort('totalRevenue')}>売上{sortIndicator('totalRevenue')}</th>
                         <th onClick={() => handleSort('totalSettlements')}>成約{sortIndicator('totalSettlements')}</th>
-                        <th onClick={() => handleSort('totalAdConversions')}>広告CV{sortIndicator('totalAdConversions')}</th>
                         <th onClick={() => handleSort('totalLineAdds')}>LINE追加{sortIndicator('totalLineAdds')}</th>
                         <th onClick={() => handleSort('cpo')}>CPO{sortIndicator('cpo')}</th>
                         <th onClick={() => handleSort('roi')}>ROI{sortIndicator('roi')}</th>
@@ -544,7 +543,6 @@ export default function App() {
                             <td>{fmtYen(row.totalCost)}</td>
                             <td>{fmtYen(row.totalRevenue)}</td>
                             <td>{fmt(row.totalSettlements)}</td>
-                            <td>{fmt(row.totalAdConversions)}</td>
                             <td>{fmt(row.totalLineAdds)}</td>
                             <td>{fmtYen(row.cpo)}</td>
                             <td style={{ color: row.roi >= 0 ? '#16a34a' : '#dc2626' }}>{fmtPct(row.roi)}</td>
@@ -604,8 +602,7 @@ export default function App() {
                         <th onClick={() => handleSort('media_code')}>媒体{sortIndicator('media_code')}</th>
                         <th onClick={() => handleSort('totalCost')}>コスト{sortIndicator('totalCost')}</th>
                         <th onClick={() => handleSort('totalSettlements')}>成約{sortIndicator('totalSettlements')}</th>
-                        <th onClick={() => handleSort('totalAdConversions')}>広告CV{sortIndicator('totalAdConversions')}</th>
-                        <th onClick={() => handleSort('totalLineAdds')}>LINE追加{sortIndicator('totalLineAdds')}</th>
+                        <th onClick={() => handleSort('ad_conversions')}>広告CV{sortIndicator('ad_conversions')}</th>
                         <th onClick={() => handleSort('cpo')}>CPO{sortIndicator('cpo')}</th>
                         <th onClick={() => handleSort('roi')}>ROI{sortIndicator('roi')}</th>
                       </tr>
@@ -619,8 +616,7 @@ export default function App() {
                             <td>{row.media_code}</td>
                             <td>{fmtYen(row.totalCost)}</td>
                             <td>{fmt(row.totalSettlements)}</td>
-                            <td>{fmt(row.totalAdConversions)}</td>
-                            <td>{fmt(row.totalLineAdds)}</td>
+                            <td>{fmt(row.ad_conversions)}</td>
                             <td>{row.totalSettlements > 0 ? fmtYen(row.cpo) : '-'}</td>
                             <td style={{ color: row.roi >= 0 ? '#16a34a' : '#dc2626' }}>{fmtPct(row.roi)}</td>
                           </tr>
@@ -736,8 +732,6 @@ export default function App() {
                       <th>成約変化</th>
                       <th>CPO</th>
                       <th>CPO変化</th>
-                      <th>広告CV</th>
-                      <th>CV変化</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -751,8 +745,6 @@ export default function App() {
                         <td><HeatmapCell value={c.settlementChange} isPercent /></td>
                         <td>{c.settlement_count > 0 ? fmtYen(c.cpo) : '-'}</td>
                         <td><HeatmapCell value={c.cpoChange} isPercent /></td>
-                        <td>{fmt(c.ad_conversions)}</td>
-                        <td><HeatmapCell value={c.adConvChange} isPercent /></td>
                       </tr>
                     ))}
                   </tbody>
@@ -894,7 +886,7 @@ export default function App() {
               className="btn btn-secondary btn-sm"
               onClick={() => {
                 const rows = dataListRows.map(r => ({
-                  report_date: r.report_date,
+                  date: r.date,
                   media_code: r.media_code,
                   creative_code: r.creative_code,
                   funnel_type: r.funnel_type,
@@ -902,7 +894,6 @@ export default function App() {
                   clicks: r.clicks,
                   cost: r.cost,
                   ad_conversions: r.ad_conversions,
-                  linead_count: r.linead_count,
                   settlement_count: r.settlement_count,
                   total_amount: r.total_amount,
                 }))
@@ -921,7 +912,7 @@ export default function App() {
               <table>
                 <thead>
                   <tr>
-                    <th onClick={() => handleSort('report_date')}>日付{sortIndicator('report_date')}</th>
+                    <th onClick={() => handleSort('date')}>日付{sortIndicator('date')}</th>
                     <th onClick={() => handleSort('media_code')}>媒体{sortIndicator('media_code')}</th>
                     <th onClick={() => handleSort('creative_code')}>クリエイティブ{sortIndicator('creative_code')}</th>
                     <th onClick={() => handleSort('funnel_type')}>ファネル{sortIndicator('funnel_type')}</th>
@@ -929,17 +920,16 @@ export default function App() {
                     <th onClick={() => handleSort('clicks')}>clicks{sortIndicator('clicks')}</th>
                     <th onClick={() => handleSort('cost')}>コスト{sortIndicator('cost')}</th>
                     <th onClick={() => handleSort('ad_conversions')}>広告CV{sortIndicator('ad_conversions')}</th>
-                    <th onClick={() => handleSort('linead_count')}>LINE追加{sortIndicator('linead_count')}</th>
                     <th onClick={() => handleSort('settlement_count')}>成約{sortIndicator('settlement_count')}</th>
                     <th onClick={() => handleSort('total_amount')}>売上{sortIndicator('total_amount')}</th>
                   </tr>
                 </thead>
                 <tbody>
                   {sortRows(dataListRows.slice(0, displayLimit) as unknown as Record<string, unknown>[]).map((r, i) => {
-                    const row = r as unknown as FunnelDailyRow
+                    const row = r as unknown as CreativeRow
                     return (
-                      <tr key={`${row.report_date}-${row.media_code}-${row.creative_code}-${i}`}>
-                        <td>{row.report_date}</td>
+                      <tr key={`${row.date}-${row.media_code}-${row.creative_code}-${i}`}>
+                        <td>{row.date}</td>
                         <td>{row.media_code}</td>
                         <td title={row.creative_code}>{row.creative_code.length > 25 ? row.creative_code.slice(0, 25) + '...' : row.creative_code}</td>
                         <td>{row.funnel_type}</td>
@@ -947,7 +937,6 @@ export default function App() {
                         <td>{fmt(row.clicks)}</td>
                         <td>{fmtYen(row.cost)}</td>
                         <td>{fmt(row.ad_conversions)}</td>
-                        <td>{fmt(row.linead_count)}</td>
                         <td>{fmt(row.settlement_count)}</td>
                         <td>{fmtYen(row.total_amount)}</td>
                       </tr>
